@@ -1,0 +1,2 @@
+br2rauc 1000 br2rauc 1000 - /home/br2rauc /bin/sh adm,audio,cdrom,dialout,floppy,plugdev,staff,sudo,video Default user
+

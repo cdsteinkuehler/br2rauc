@@ -1,0 +1,77 @@
+/* miniuart-bt-overlay to fix serial console on CM4 */
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+	status = "okay";
+};
+
+&bt {
+	status = "disabled";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins &bt_pins &fake_bt_cts>;
+	status = "okay";
+};
+
+&uart0_pins {
+	brcm,pins;
+	brcm,function;
+	brcm,pull;
+};
+
+&uart1_pins {
+	brcm,pins = <32 33>;
+	brcm,function = <2>; /* alt5=UART1 */
+	brcm,pull = <0 2>;
+};
+
+&gpio {
+	fake_bt_cts: fake_bt_cts {
+		brcm,pins = <31>;
+		brcm,function = <1>; /* output */
+	};
+};
+
+/ {
+	aliases {
+		serial0 = "/soc/serial@7e201000";
+		serial1 = "/soc/serial@7e215040";
+	};
+
+	__overrides__ {
+		krnbt = <&minibt>,"status";
+	};
+};
+
+/* dtoverlay=dwc2,dr_mode=host */
+
+&usb { 
+	compatible = "brcm,bcm2835-usb";
+	dr_mode = "host";
+	g-np-tx-fifo-size = <32>;
+	g-rx-fifo-size = <558>;
+	g-tx-fifo-size = <512 512 512 512 512 256 256>;
+	status = "okay";
+};
+
+/{
+	__overrides__ {
+		dr_mode = <&usb>, "dr_mode";
+		g-np-tx-fifo-size = <&usb>,"g-np-tx-fifo-size:0";
+		g-rx-fifo-size = <&usb>,"g-rx-fifo-size:0";
+	};
+};
+
+/* otg_mode=1 */
+ 
+&usb { 
+	status = "disabled";
+};
+
+&xhci { 
+	status = "okay";
+};
+
