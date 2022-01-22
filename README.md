@@ -33,7 +33,7 @@ cd ~/MyWorkDir
 
 # Pull in the required projects
 git clone --depth 1 --branch 2021.11.x https://git.busybox.net/buildroot/
-git clone <github/br2rauc>
+git clone https://github.com/cdsteinkuehler/br2rauc
 
 # Setup buildroot, keeping build artifacts outside the buildroot tree
 # Note paths are relative to the buildroot directory
@@ -184,13 +184,15 @@ list of some possible options includes:
   streamlined Buildroot environment.  To use the device tree loaded by the RPi
   firmware, pass the fw_dtb argument on the kernel command line.  This is
   currently the default for the generated sdcard.img system.
+
 * Migrate device tree overlay processing to U-Boot: This is non-trivial, but
   certainly possible (see the BeagleBone, for example).
+
 * Manually generate a flattened device tree: This may be a decent intermediate
   option if you are willing to do some manual work when updating kernel
   versions. For example, you could boot using the RPi firmware and config.txt
   file then copy the run-time device tree to a flattened dts file:
-  `dtc -I fs -O -s dts /proc/device-tree -o flattened.dts`
+  `dtc -I fs -O dts -s /proc/device-tree -o flattened.dts`
 
 * Generate a custom device-tree: You can configure Buildroot to compile custom
   device tree files (see BR2_LINUX_KERNEL_CUSTOM_DTS_PATH).  This mechanism is
@@ -206,6 +208,11 @@ list of some possible options includes:
   from your running system).  To enable loading the device tree from your rootfs
   partition, edit cmdline.txt on the vfat partition and delete the fw_dft
   argument.
+
+* Load device tree overlays at run-time: You can use the kernel's configfs
+  interface to load and unload device-tree overlays once the system is up and
+  running by creating and removing directories and dtbo files in:
+  `/sys/kernel/config/device-tree/overlays/`
 
 ### Warning
 
