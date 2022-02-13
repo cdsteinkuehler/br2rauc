@@ -22,3 +22,11 @@ install -D -m 0644 $BR2_EXTERNAL_BR2RAUC_PATH/board/raspberrypi/cmdline.txt ${BI
 # Copy RAUC certificate
 install -D -m 0644 $BR2_EXTERNAL_BR2RAUC_PATH/board/raspberrypi/cert/cert.pem ${TARGET_DIR}/etc/rauc/keyring.pem
 
+# 
+cat <<- EOF >> ${TARGET_DIR}/etc/issue
+
+	Default username:password is [user:<empty>]
+	Root login disabled, use sudo su -
+	eth0: \4{eth0}
+
+EOF
