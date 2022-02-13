@@ -39,10 +39,23 @@ git clone https://github.com/cdsteinkuehler/br2rauc
 # Note paths are relative to the buildroot directory
 make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypicm4io_64_rauc_defconfig
 
-cd output
 # You can now run standard buildroot make commands with no options
+# directly from the output directory
+cd output
+
 # You may want to run "make menuconfig" to enable ccache or review/tweak the
 # default config selections
+# Some suggested changes:
+# Rename defconfig file to save customizations:
+#   Build options -> Location to save buildroot config
+# Enable ccache:
+#   Build options -> Enable compiler cache
+#   Build options -> Compiler cache location
+# Download a bootlin toolchain instead of building one from scratch:
+#   Toolchain -> Toolchain type -> External toolchain
+#   Toolchain -> Toolchain -> Bootlin toolchains
+#   Toolchain -> Bootlin toolchain variant -> aarch64 glibc stable 2021.11-1
+
 # Build everything and generate the sdcard.img image file:
 make
 ```
@@ -160,7 +173,8 @@ below.
 
 The Linux kernel configuration leverages the same bcm2711 configuration as the
 Buildroot default Raspberry Pi examples.  A configuration fragment is used to
-enable `verity` and `squashfs`, required to work with the new format RAUC bundles.
+enable `verity` and `squashfs`, required to work with the new format RAUC
+bundles.
 
 ### Warning
 
@@ -173,8 +187,9 @@ updating Buildroot!
 ## Device Tree
 
 Managing the device tree can be one of the more complicated aspects of working
-with embedded ARM based systems.  A full discussion of all available options for managing device trees is well beyond the scope of this project, but a brief
-list of some possible options includes:
+with embedded ARM based systems.  A full discussion of all available options for
+managing device trees is well beyond the scope of this project, but a brief list
+of some possible options includes:
 
 * Let the RPi firmware load your device tree: This creates a dependency between
   your rootfs image containing the kernel and the FAT partition with the device
