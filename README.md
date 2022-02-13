@@ -131,7 +131,7 @@ for the Raspberry Pi CM4 I/O board, with the following major changes:
     switching between redundant filesystem images and handling failed updates.
 * Add RAUC : This builds the required host and target tools needed to use RAUC.
 * Undefine BR2_ARM_FPU_VFPV4 : 64-bit ARM cores are required to support ARMv8.
-* Add a non-root user (br2rauc) and enable sudo
+* Add a non-root user (user) and enable sudo without password
 * Implement device tree customizations necessary for the cm4io
 * Modify post-*.sh scripts as needed for RAUC
 * Generate RAUC update bundles for boot and root filesystems
