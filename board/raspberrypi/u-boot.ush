@@ -2,71 +2,94 @@ test -n "${BOOT_ORDER}" || setenv BOOT_ORDER "A B"
 test -n "${BOOT_A_LEFT}" || setenv BOOT_A_LEFT 3
 test -n "${BOOT_B_LEFT}" || setenv BOOT_B_LEFT 3
 test -n "${default_bootargs}" || setenv default_bootargs coherent_pool=1M vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000 rootwait console=tty1 console=ttyAMA0,115200
-
 test -n "${DTB_FILE}" || setenv DTB_FILE bcm2711-rpi-cm4.dtb
+
+# RPi firmware uses a dynamic fdt_addr, but U-Boot does not use the fw
+# provided address if fdt_addr is already defined in the environment!
+# Make sure we never save fdt_addr:
+env set rpi_saveenv "env delete fdt_addr; env save;"
 
 setenv bootargs
 for BOOT_SLOT in "${BOOT_ORDER}"; do
-  if test "x${bootargs}" != "x"; then
-    # skip remaining slots
-  elif test "x${BOOT_SLOT}" = "xA"; then
-    if test ${BOOT_A_LEFT} -gt 0; then
-      echo "Found valid slot A, ${BOOT_A_LEFT} attempts remaining"
-      setexpr BOOT_A_LEFT ${BOOT_A_LEFT} - 1
-      setenv load_kernel "ext4load mmc 0:2 ${kernel_addr_r} boot/Image"
-      setenv load_fdt "ext4load mmc 0:2 ${fdt_addr_r} boot/${DTB_FILE}"
-      setenv bootargs "${default_bootargs} root=/dev/mmcblk0p2 rauc.slot=A"
-    fi
-  elif test "x${BOOT_SLOT}" = "xB"; then
-    if test ${BOOT_B_LEFT} -gt 0; then
-      echo "Found valid slot B, ${BOOT_B_LEFT} attempts remaining"
-      setexpr BOOT_B_LEFT ${BOOT_B_LEFT} - 1
-      setenv load_kernel "ext4load mmc 0:3 ${kernel_addr_r} boot/Image"
-      setenv load_fdt "ext4load mmc 0:3 ${fdt_addr_r} boot/${DTB_FILE}"
-      setenv bootargs "${default_bootargs} root=/dev/mmcblk0p3 rauc.slot=B"
-    fi
-  fi
+	if test "x${bootargs}" != "x"; then
+		# skip remaining slots
+	elif test "x${BOOT_SLOT}" = "xA"; then
+		if test ${BOOT_A_LEFT} -gt 0; then
+			echo "Found valid slot A, ${BOOT_A_LEFT} attempts remaining"
+			setexpr BOOT_A_LEFT ${BOOT_A_LEFT} - 1
+			setenv load_kernel "ext4load mmc 0:2 ${kernel_addr_r} boot/Image"
+			setenv load_fdt "ext4load mmc 0:2 ${fdt_addr_r} boot/${DTB_FILE}"
+			setenv bootargs "${default_bootargs} root=/dev/mmcblk0p2 rauc.slot=A"
+		fi
+	elif test "x${BOOT_SLOT}" = "xB"; then
+		if test ${BOOT_B_LEFT} -gt 0; then
+			echo "Found valid slot B, ${BOOT_B_LEFT} attempts remaining"
+			setexpr BOOT_B_LEFT ${BOOT_B_LEFT} - 1
+			setenv load_kernel "ext4load mmc 0:3 ${kernel_addr_r} boot/Image"
+			setenv load_fdt "ext4load mmc 0:3 ${fdt_addr_r} boot/${DTB_FILE}"
+			setenv bootargs "${default_bootargs} root=/dev/mmcblk0p3 rauc.slot=B"
+		fi
+	fi
 done
 
-if test -n "${bootargs}"; then
-  saveenv
-else
-  echo "No valid slot found, resetting tries to 3"
-  setenv BOOT_A_LEFT 3
-  setenv BOOT_B_LEFT 3
-  saveenv
-  reset
+if test -z "${bootargs}"; then
+	echo "No valid slot found, resetting tries to 3"
+	setenv BOOT_A_LEFT 3
+	setenv BOOT_B_LEFT 3
+	rpi_saveenv
+	reset
 fi
 
 # Examine the fdt loaded by the firmware
 # Pass fw_dtb to use the dtb loaded by the firmware
-setenv fdt_live
+fdt_live=unset
 fdt addr ${fdt_addr}
 fdt get value fw_cmdline /chosen bootargs
 for arg in ${fw_cmdline} ; do
 	if test "x${arg}" = "xfw_dtb" ; then
 		echo "Using firmware device-tree"
-		setenv fdt_live ${fdt_addr}
+		fdt_live=${fdt_addr}
 	fi
 done
+env del fw_cmdline
 
 # If we're not using the dtb loaded by the firmware, load our dtb
 # and fixup the emmc2 dma-ranges setting so newer SOCs will boot
-if test -z "${fdt_live}"; then
+# For details of what the FW modifies, see this RPi forum post:
+# https://forums.raspberrypi.com/viewtopic.php?t=329799#p1974233
+if test "${fdt_live}" = "unset"; then
 	# Fixup emmc2 dma range, which varies based on SOC revision
 	# U-Boot's fdt get/set functions don't seem to work as expected
-	# on properties with multiple values, so just do a memcpy
-	fdt get addr emmcsrc /emmc2bus dma-ranges
-	fdt get size emmclen /emmc2bus dma-ranges
+	# on properties with multiple values, so just do a memcpy()
+
+	# Get a ptr/len for the FW modified dma-ranges
+	fdt get addr tmp_fdt_src /emmc2bus dma-ranges
+	fdt get size tmp_fdt_len /emmc2bus dma-ranges
+
+	# Load our actual device-tree file
 	echo "Loading device-tree"
 	run load_fdt
+
+	# Copy FW fixed-up dma-ranges to loaded device-tree
 	fdt addr ${fdt_addr_r}
-	fdt get addr emmcdst /emmc2bus dma-ranges
-	cp $emmcsrc $emmcdst $emmclen
-	setenv fdt_live ${fdt_addr_r}
+	fdt get addr tmp_fdt_dst /emmc2bus dma-ranges
+	cp $tmp_fdt_src $tmp_fdt_dst $tmp_fdt_len
+
+	# FIXME: Update PCIe dma-ranges if using PCIe!
+
+	# Point to run-time device-tree
+	fdt_live=${fdt_addr_r}
+
+	# cleanup environment
+	env del tmp_fdt_src tmp_fdt_len tmp_fdt_dst;
 fi
+
+# Store updated boot state...
+# ...above code should have modified BOOT_(AB)_LEFT and bootargs
+run rpi_saveenv
 
 echo "Loading kernel"
 run load_kernel
-echo " Starting kernel"
+
+echo "Starting kernel"
 booti ${kernel_addr_r} - ${fdt_live}
