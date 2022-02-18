@@ -32,7 +32,7 @@ mkdir ~/MyWorkDir
 cd ~/MyWorkDir
 
 # Pull in the required projects
-git clone --depth 1 --branch 2021.11.x https://git.busybox.net/buildroot/
+git clone --depth 1 --branch 2021.11.x --no-single-branch https://git.busybox.net/buildroot/
 git clone https://github.com/cdsteinkuehler/br2rauc
 
 # Setup buildroot, keeping build artifacts outside the buildroot tree
