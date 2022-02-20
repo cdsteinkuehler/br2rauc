@@ -6,8 +6,10 @@ test -n "${DTB_FILE}" || setenv DTB_FILE bcm2711-rpi-cm4.dtb
 
 # RPi firmware uses a dynamic fdt_addr, but U-Boot does not use the fw
 # provided address if fdt_addr is already defined in the environment!
-# Make sure we never save fdt_addr:
-env set rpi_saveenv "env delete fdt_addr; env save;"
+# Copy fdt_addr to a local variable and delete the environment variable
+# so it never gets accidentally saved:
+fdt_addr=${fdt_addr}
+env delete fdt_addr
 
 setenv bootargs
 for BOOT_SLOT in "${BOOT_ORDER}"; do
@@ -36,7 +38,7 @@ if test -z "${bootargs}"; then
 	echo "No valid slot found, resetting tries to 3"
 	setenv BOOT_A_LEFT 3
 	setenv BOOT_B_LEFT 3
-	run rpi_saveenv
+	saveenv
 	reset
 fi
 
@@ -86,7 +88,7 @@ fi
 
 # Store updated boot state...
 # ...above code should have modified BOOT_(AB)_LEFT and bootargs
-run rpi_saveenv
+saveenv
 
 echo "Loading kernel"
 run load_kernel
