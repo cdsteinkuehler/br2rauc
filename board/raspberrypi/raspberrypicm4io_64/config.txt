@@ -91,6 +91,12 @@ arm_64bit=1
 # fixes rpi (3B, 3B+, 3A+, 4B and Zero W) ttyAMA0 serial console
 dtoverlay=miniuart-bt
 
+# Enable watchdog, system will reset if U-Boot and Linux do not boot within 16 seconds
+# Requires fairly recent RPi Firmware:
+# https://github.com/raspberrypi/firmware/issues/1651
+# Comment this line if you expect to be able to use the U-Boot command prompt!
+dtparam=watchdog
+
 # Enable early debugging info
 uart_2ndstage=1
 
