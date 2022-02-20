@@ -1,3 +1,10 @@
+/**********************************************************************/
+/* WARNING:                                                           */
+/* This file and the resulting dtb installed to the rootfs will be    */
+/* IGNORED unless you edit config.txt on the boot partition and       */
+/* remove the fw_dtb argument from cmdline.txt!                       */
+/**********************************************************************/
+
 /* miniuart-bt-overlay to fix serial console on CM4 */
 
 &uart0 {
