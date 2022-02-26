@@ -19,16 +19,18 @@ for BOOT_SLOT in "${BOOT_ORDER}"; do
 		if test ${BOOT_A_LEFT} -gt 0; then
 			echo "Found valid slot A, ${BOOT_A_LEFT} attempts remaining"
 			setexpr BOOT_A_LEFT ${BOOT_A_LEFT} - 1
-			setenv load_kernel "load mmc 0:2 ${kernel_addr_r} boot/Image"
+			setenv load_uenv "load mmc 0:2 ${kernel_addr_r} boot/uEnv.txt"
 			setenv load_fdt "load mmc 0:2 ${fdt_addr_r} boot/${DTB_FILE}"
+			setenv load_kernel "load mmc 0:2 ${kernel_addr_r} boot/Image"
 			raucargs="root=/dev/mmcblk0p2 rauc.slot=A"
 		fi
 	elif test "x${BOOT_SLOT}" = "xB"; then
 		if test ${BOOT_B_LEFT} -gt 0; then
 			echo "Found valid slot B, ${BOOT_B_LEFT} attempts remaining"
 			setexpr BOOT_B_LEFT ${BOOT_B_LEFT} - 1
-			setenv load_kernel "load mmc 0:3 ${kernel_addr_r} boot/Image"
+			setenv load_uenv "load mmc 0:3 ${kernel_addr_r} boot/uEnv.txt"
 			setenv load_fdt "load mmc 0:3 ${fdt_addr_r} boot/${DTB_FILE}"
+			setenv load_kernel "load mmc 0:3 ${kernel_addr_r} boot/Image"
 			raucargs="root=/dev/mmcblk0p3 rauc.slot=B"
 		fi
 	fi
@@ -63,6 +65,14 @@ env del bootargs_fw
 # For details of what the FW modifies, see this RPi forum post:
 # https://forums.raspberrypi.com/viewtopic.php?t=329799#p1974233
 if test "x${fdt_live}" = "xunset"; then
+	# Using device-tree from rootfs
+	# Check to see if we have any customizations in a uEnv.txt file
+	env del bootargs_force bootargs_extra
+	if run load_uenv ; then
+		echo "Importing uEnv.txt"
+		env import -t -r ${fileaddr} ${filesize}
+	fi
+
 	# Fixup emmc2 dma range, which varies based on SOC revision
 	# U-Boot's fdt get/set functions don't seem to work as expected
 	# on properties with multiple values, so just do a memcpy()
@@ -89,7 +99,11 @@ if test "x${fdt_live}" = "xunset"; then
 	env del tmp_src tmp_len tmp_dst;
 
 	# Setup kernel parameters
-	setenv bootargs "${bootargs_default} ${raucargs}"
+	if test -n "${bootargs_force}" ; then
+		setenv bootargs "${bootargs_force} ${raucargs}"
+	else
+		setenv bootargs "${bootargs_default} ${bootargs_extra} ${raucargs}"
+	fi
 else
 	# Using FW provided device-tree
 	# Append rauc boot arguments to FW generated command line
