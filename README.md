@@ -17,6 +17,22 @@ if you need something more customized to your needs.
 * Single persistent data partition
 * Boot-time watchdog support (via recent RPi Firmware)
 
+#### ToDo list:
+
+* Support rescue partition
+* Update partition sizes (but still fit in 4G uSD card):
+  * Match RPi 256MB boot partition size & 4MB offset
+  * Add 256MB squashfs rescue partition
+  * Increase A & B partition sizes to 900MB
+  * Increase Data partition size to 128MB
+  * Add 900MB Upload partition for updates
+* Web portal for updates using RAUC example cgi program
+* Example application to interact with RAUC:
+  * Mark status good once booted and running
+  * Interact with systemd watchdog
+  * Use jumpers to trigger failed behavior for testing
+* Create bmap file & xz compress generated image
+
 ## Getting Started
 
 This project is a Buildroot external directory and can **not** be used alone.
