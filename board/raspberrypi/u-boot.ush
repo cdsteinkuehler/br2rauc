@@ -11,30 +11,43 @@ test -n "${DTB_FILE}" || setenv DTB_FILE bcm2711-rpi-cm4.dtb
 fdt_addr=${fdt_addr}
 env delete fdt_addr
 
-raucargs=unset
-for BOOT_SLOT in "${BOOT_ORDER}"; do
-	if test "x${raucargs}" != "xunset"; then
-		# skip remaining slots
-	elif test "x${BOOT_SLOT}" = "xA"; then
-		if test ${BOOT_A_LEFT} -gt 0; then
-			echo "Found valid slot A, ${BOOT_A_LEFT} attempts remaining"
-			setexpr BOOT_A_LEFT ${BOOT_A_LEFT} - 1
-			setenv load_uenv "load mmc 0:2 ${kernel_addr_r} boot/uEnv.txt"
-			setenv load_fdt "load mmc 0:2 ${fdt_addr_r} boot/${DTB_FILE}"
-			setenv load_kernel "load mmc 0:2 ${kernel_addr_r} boot/Image"
-			raucargs="root=/dev/mmcblk0p2 rauc.slot=A"
+# To boot from the rescue partition, tie GPIO4 (pin 7) to GND (pin 9)
+# The gpio input command will return an exit status of 0 (true)
+# If the pin is high (pulled up by default) the exit status is 1 (false)
+if gpio input gpio4 ; then
+	# GPIO4 is shorted to ground so boot in rescue mode
+	echo "Booting from rescue partition"
+	setenv load_uenv "load mmc 0:2 ${kernel_addr_r} /boot/uEnv.txt"
+	setenv load_fdt "load mmc 0:2 ${fdt_addr_r} /boot/${DTB_FILE}"
+	setenv load_kernel "load mmc 0:2 ${kernel_addr_r} /boot/Image"
+	raucargs="root=/dev/mmcblk0p2"
+	rescue=true
+else
+	raucargs=unset
+	for BOOT_SLOT in "${BOOT_ORDER}"; do
+		if test "x${raucargs}" != "xunset"; then
+			# skip remaining slots
+		elif test "x${BOOT_SLOT}" = "xA"; then
+			if test ${BOOT_A_LEFT} -gt 0; then
+				echo "Found valid slot A, ${BOOT_A_LEFT} attempts remaining"
+				setexpr BOOT_A_LEFT ${BOOT_A_LEFT} - 1
+				setenv load_uenv "load mmc 0:5 ${kernel_addr_r} /boot/uEnv.txt"
+				setenv load_fdt "load mmc 0:5 ${fdt_addr_r} /boot/${DTB_FILE}"
+				setenv load_kernel "load mmc 0:5 ${kernel_addr_r} /boot/Image"
+				raucargs="root=/dev/mmcblk0p5 rauc.slot=A"
+			fi
+		elif test "x${BOOT_SLOT}" = "xB"; then
+			if test ${BOOT_B_LEFT} -gt 0; then
+				echo "Found valid slot B, ${BOOT_B_LEFT} attempts remaining"
+				setexpr BOOT_B_LEFT ${BOOT_B_LEFT} - 1
+				setenv load_uenv "load mmc 0:6 ${kernel_addr_r} /boot/uEnv.txt"
+				setenv load_fdt "load mmc 0:6 ${fdt_addr_r} /boot/${DTB_FILE}"
+				setenv load_kernel "load mmc 0:6 ${kernel_addr_r} /boot/Image"
+				raucargs="root=/dev/mmcblk0p6 rauc.slot=B"
+			fi
 		fi
-	elif test "x${BOOT_SLOT}" = "xB"; then
-		if test ${BOOT_B_LEFT} -gt 0; then
-			echo "Found valid slot B, ${BOOT_B_LEFT} attempts remaining"
-			setexpr BOOT_B_LEFT ${BOOT_B_LEFT} - 1
-			setenv load_uenv "load mmc 0:3 ${kernel_addr_r} boot/uEnv.txt"
-			setenv load_fdt "load mmc 0:3 ${fdt_addr_r} boot/${DTB_FILE}"
-			setenv load_kernel "load mmc 0:3 ${kernel_addr_r} boot/Image"
-			raucargs="root=/dev/mmcblk0p3 rauc.slot=B"
-		fi
-	fi
-done
+	done
+fi
 
 if test "x${raucargs}" = "xunset"; then
 	echo "No valid slot found, resetting tries to 3"
@@ -51,7 +64,6 @@ fdt addr ${fdt_addr}
 fdt get value bootargs_fw /chosen bootargs
 for arg in ${bootargs_fw} ; do
 	if test "x${arg}" = "xfw_dtb" ; then
-		echo "Using firmware device-tree"
 		fdt_live=${fdt_addr}
 	fi
 done
@@ -64,10 +76,11 @@ env del bootargs_fw
 # and fixup the emmc2 dma-ranges setting so newer SOCs will boot
 # For details of what the FW modifies, see this RPi forum post:
 # https://forums.raspberrypi.com/viewtopic.php?t=329799#p1974233
-if test "x${fdt_live}" = "xunset"; then
+if test "x${rescue}" = "xtrue" -o "x${fdt_live}" = "xunset"; then
 	# Using device-tree from rootfs
 	# Check to see if we have any customizations in a uEnv.txt file
 	env del bootargs_force bootargs_extra
+	echo "Checking for /boot/uEnv.txt"
 	if run load_uenv ; then
 		echo "Importing uEnv.txt"
 		env import -t -r ${fileaddr} ${filesize}
@@ -78,6 +91,7 @@ if test "x${fdt_live}" = "xunset"; then
 	# on properties with multiple values, so just do a memcpy()
 
 	# Get a ptr/len for the FW modified dma-ranges
+	fdt addr ${fdt_addr}
 	fdt get addr tmp_src /emmc2bus dma-ranges
 	fdt get size tmp_len /emmc2bus dma-ranges
 
@@ -108,6 +122,7 @@ else
 	# Using FW provided device-tree
 	# Append rauc boot arguments to FW generated command line
 	# This setting will override /chosen/bootargs in the device-tree
+	echo "Using firmware device-tree"
 	setenv bootargs "${bootargs_fw} ${raucargs}"
 fi
 
