@@ -97,6 +97,9 @@ dtoverlay=miniuart-bt
 # Comment this line if you expect to be able to use the U-Boot command prompt!
 dtparam=watchdog
 
+# GPIO 4 has a pull-up enabled at reset, but let's set it explicitly just to be sure
+gpio=4=ip,pu
+
 # Enable early debugging info
 uart_2ndstage=1
 
