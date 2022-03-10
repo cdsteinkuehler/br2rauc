@@ -1,5 +1,6 @@
 CONFIG_BLKDISCARD=Y
 # CONFIG_WATCHDOG is not set
+# CONFIG_MOUNT is not set
 # CONFIG_KLOGD is not set
 # CONFIG_FEATURE_KLOGD_KLOGCTL is not set
 # CONFIG_SYSLOGD is not set
