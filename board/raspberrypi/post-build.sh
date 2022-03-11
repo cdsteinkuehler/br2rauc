@@ -3,6 +3,8 @@
 set -u
 set -e
 
+RAUC_COMPATIBLE="${2:-br2rauc-rpi4-64}"
+
 # Add a console on tty1
 if [ -e ${TARGET_DIR}/etc/inittab ]; then
     grep -qE '^tty1::' ${TARGET_DIR}/etc/inittab || \
@@ -27,6 +29,9 @@ install -D -m 0644 $BR2_EXTERNAL_BR2RAUC_PATH/board/raspberrypi/cmdline.txt ${BI
 
 # Copy RAUC certificate
 install -D -m 0644 $BR2_EXTERNAL_BR2RAUC_PATH/board/raspberrypi/cert/cert.pem ${TARGET_DIR}/etc/rauc/keyring.pem
+
+# Update RAUC compatible string
+sed -i "/compatible/s/=.*\$/=${RAUC_COMPATIBLE}/" ${TARGET_DIR}/etc/rauc/system.conf
 
 # 
 cat <<- EOF >> ${TARGET_DIR}/etc/issue
