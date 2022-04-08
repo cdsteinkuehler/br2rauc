@@ -1,0 +1,65 @@
+/**********************************************************************/
+/* WARNING:                                                           */
+/* This file and the resulting dtb installed to the rootfs will be    */
+/* IGNORED unless you edit config.txt on the boot partition and       */
+/* remove the fw_dtb argument from cmdline.txt!                       */
+/**********************************************************************/
+
+/* miniuart-bt-overlay to fix serial console on CM4 */
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+	status = "okay";
+};
+
+&bt {
+	status = "disabled";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins &bt_pins &fake_bt_cts>;
+	status = "okay";
+};
+
+&uart0_pins {
+	brcm,pins;
+	brcm,function;
+	brcm,pull;
+};
+
+&uart1_pins {
+	brcm,pins = <32 33>;
+	brcm,function = <2>; /* alt5=UART1 */
+	brcm,pull = <0 2>;
+};
+
+&gpio {
+	fake_bt_cts: fake_bt_cts {
+		brcm,pins = <31>;
+		brcm,function = <1>; /* output */
+	};
+};
+
+/ {
+	aliases {
+		serial0 = "/soc/serial@7e201000";
+		serial1 = "/soc/serial@7e215040";
+	};
+
+	__overrides__ {
+		krnbt = <&minibt>,"status";
+	};
+};
+
+/* otg_mode=1 */
+ 
+&usb { 
+	status = "disabled";
+};
+
+&xhci { 
+	status = "okay";
+};
+

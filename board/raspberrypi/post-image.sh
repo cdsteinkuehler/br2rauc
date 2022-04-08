@@ -3,9 +3,10 @@
 set -e
 
 BOARD_DIR="$(dirname $0)"
+BOARD_NAME="$(basename ${BOARD_DIR})"
 GENIMAGE_CFG="${BOARD_DIR}/genimage.cfg"
 GENIMAGE_TMP="${BUILD_DIR}/genimage.tmp"
-GENBOOTFS_CFG="${BOARD_DIR}/genbootfs.cfg"
+GENBOOTFS_CFG="${BOARD_DIR}/genbootfs-${BOARD_NAME}.cfg"
 RAUC_COMPATIBLE="${2:-br2rauc-rpi4-64}"
 
 # Pass an empty rootpath. genimage makes a full copy of the given rootpath to
@@ -115,4 +116,11 @@ genimage \
 	--inputpath "${BINARIES_DIR}"  \
 	--outputpath "${BINARIES_DIR}" \
 	--config "${GENIMAGE_CFG}"
+
+# Create a bmap file for the sdcard image
+bmaptool create "${BINARIES_DIR}/sdcard.img" -o "${BINARIES_DIR}/sdcard.img.bmap"
+
+# Compress the sdcard image
+[ -e "${BINARIES_DIR}/sdcard.img.xz" ] && rm "${BINARIES_DIR}/sdcard.img.xz"
+xz -T 0 "${BINARIES_DIR}/sdcard.img"
 

@@ -44,7 +44,10 @@ git clone https://github.com/cdsteinkuehler/br2rauc
 
 # Setup buildroot, keeping build artifacts outside the buildroot tree
 # Note paths are relative to the buildroot directory
-make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypicm4io_64_rauc_defconfig
+make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypicm4io-64-rauc_defconfig
+
+# ...or for the Raspberry Pi 4B:
+make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypi4-64-rauc_defconfig
 
 # You can now run standard buildroot make commands with no options
 # directly from the output directory
@@ -68,7 +71,7 @@ make
 
 # To create another Buildroot working directory to use for the rescue partition:
 cd ~/MyWorkDir
-make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../rescue raspberrypicm4io_64_rauc_defconfig
+make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../rescue raspberrypicm4io-64-rauc_defconfig
 
 # You can now run standard buildroot make commands with no options
 # directly from the output directory
