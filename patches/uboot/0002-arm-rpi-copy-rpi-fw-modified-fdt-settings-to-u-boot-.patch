@@ -1,0 +1,340 @@
+From 11e45240b47217e66b16d8f311c96fb42eb57751 Mon Sep 17 00:00:00 2001
+From: Leonardo Amorim <lam@vizrt.com>
+Date: Thu, 7 Apr 2022 17:01:17 -0300
+Subject: [PATCH] arm: rpi: copy rpi fw modified fdt settings to u-boot loaded
+ fdt
+
+The closed source RPI firmware modifies several entries in the
+device-tree that are important for proper boot. The complete list
+of these entries can be found at:
+
+https://forums.raspberrypi.com/viewtopic.php?p=1974233&hilit=firmware+device+tree+dma+ranges#p1974233
+
+The function ft_board_setup() was modified so that if u-boot has
+loaded a fdt that is different than the rpi fw fdt, then
+it will copy all those important nodes and properties
+created and modified by the rpi fw to the u-boot loaded fdt
+blob.
+
+Signed-off-by: Leonardo Amorim <lam@vizrt.com>
+---
+ board/raspberrypi/rpi/rpi.c | 282 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 282 insertions(+)
+
+diff --git a/board/raspberrypi/rpi/rpi.c b/board/raspberrypi/rpi/rpi.c
+index 17b8108cc8..fad4eff376 100644
+--- a/board/raspberrypi/rpi/rpi.c
++++ b/board/raspberrypi/rpi/rpi.c
+@@ -25,9 +25,12 @@
+ #endif
+ #include <watchdog.h>
+ #include <dm/pinctrl.h>
++#include <stdbool.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
++#define MAX_LEVEL	32		/* how deeply nested we will go */
++
+ /* Assigned in lowlevel_init.S
+  * Push the variable into the .data section so that it
+  * does not get cleared later.
+@@ -262,6 +265,25 @@ static const struct rpi_model rpi_models_old_scheme[] = {
+ 	},
+ };
+ 
++/*
++ * The closed source Rpi firmware modifies several device-tree entries before
++ * booting the Linux Kernel. Those entries are important for proper boot
++ * (e.g.: dma-ranges) or proper operation (e.g.: random number seeds) of the
++ * system. When the U-Boot loads a device-tree different from the Rpi
++ * firmware loaded device tree, this device-tree loaded needs to be modified
++ * by those required entries.
++ * So the array below has a list of node manipulations done by the Rpi firmware.
++ * For more information, please check: https://bit.ly/3xeqaGE
++ */
++static char * rpi_firmware_changed_nodes[] =
++{
++	"/chosen",
++	"/emmc2bus",
++	"/scb/pcie",
++	"/scb/ethernet",
++	"/memory",
++};
++
+ static uint32_t revision;
+ static uint32_t rev_scheme;
+ static uint32_t rev_type;
+@@ -504,10 +526,270 @@ void *board_fdt_blob_setup(int *err)
+ 	return (void *)fw_dtb_pointer;
+ }
+ 
++static int ft_board_setup_copy_node(struct fdt_header * fdt,
++				    struct fdt_header * fw_fdt,
++				    int nodeoffset,
++				    int fw_nodeoffset)
++{
++	int ret;		/* temporaraly stores return codes */
++	int fw_nextoffset;	/* stores the next fw fdt offset */
++	int innodeoffset;	/* stores the internal node offset */
++	uint32_t fw_tag;	/* fw tag */
++	const struct fdt_property *fdt_prop;	/* fw fdt property structure */
++	const struct fdt_property *fw_fdt_prop; /* u-boot fdt property struct */
++	const void *nodep;	/* u-boot fdt property data pointer */
++	const void *fw_nodep;	/* fw fdt property data pointer */
++	int len;		/* length of the property */
++	int fw_len;		/* firmware property len */
++	const char * pathp;	/* u-boot fdt relative node path */
++	const char * fw_pathp;	/* fw fdt relative node path */
++	int level = 0;		/* keep track of nesting level */
++
++	while(level >= 0) {
++		fw_tag = fdt_next_tag(fw_fdt, fw_nodeoffset, &fw_nextoffset);
++		switch(fw_tag) {
++		case FDT_BEGIN_NODE:
++			fw_pathp = fdt_get_name(fw_fdt, fw_nodeoffset, NULL);
++			level++;
++			if (level >= MAX_LEVEL) {
++				printf("Nested too deep, aborting.\n");
++				return 1;
++			}
++			if (level <= 1) {
++				fw_nodeoffset = fw_nextoffset;
++				continue;
++			}
++			/*
++			 * Find the inner node that corresponds to the node
++			 * we are iterating in.
++			 */
++			innodeoffset = fdt_subnode_offset(fdt, nodeoffset,
++					fw_pathp);
++			if (innodeoffset == -FDT_ERR_NOTFOUND) {
++				/*
++				 * Inner node does not exist and should
++				 * be created.
++				 */
++				innodeoffset = fdt_add_subnode(fdt, nodeoffset,
++						fw_pathp);
++				if (innodeoffset < 0) {
++					printf("libfdt fdt_add_subnode(): %s\n",
++						fdt_strerror(innodeoffset));
++					return 1;
++				}
++			} else if (innodeoffset < 0) {
++				printf("libfdt fdt_subnode_offset(): %s\n",
++					fdt_strerror(innodeoffset));
++				return 1;
++			}
++			nodeoffset = innodeoffset;
++
++			break;
++		case FDT_END_NODE:
++			level--;
++			if (level == 0) {
++				level = -1;	/* exit the loop */
++			}
++
++			/*
++			 * We were iterating over a subnode, so retrieve the
++			 * parent node so that we can keep iterating over
++			 * this outside (parent) node.
++			 */
++			nodeoffset = fdt_parent_offset(fdt, nodeoffset);
++			if (nodeoffset < 0) {
++				printf("libfdt fdt_parent_offset(): %s\n",
++					fdt_strerror(nodeoffset));
++				return 1;
++			}
++			break;
++		case FDT_PROP:
++			fw_fdt_prop = fdt_offset_ptr(fw_fdt, fw_nodeoffset,
++					sizeof(*fw_fdt_prop));
++			fw_pathp = fdt_string(fw_fdt,
++					fdt32_to_cpu(fw_fdt_prop->nameoff));
++			fw_len = fdt32_to_cpu(fw_fdt_prop->len);
++			fw_nodep = fw_fdt_prop->data;
++			if (fw_len < 0) {
++				printf ("libfdt fdt_getprop(): %s\n",
++					fdt_strerror(fw_len));
++				return 1;
++			}
++			/*
++			 * Try to find a property that has the name.
++			 * `full_fw_path`.
++			 */
++			fdt_prop = fdt_get_property(fdt, nodeoffset,
++					            fw_pathp, &len);
++			pathp = fdt_string(fdt,
++					   fdt32_to_cpu(fdt_prop->nameoff));
++			len = fdt32_to_cpu(fdt_prop->len);
++			nodep = fdt_prop->data;
++
++			/*
++			 * Verify if the property exists in the node, if not
++			 * creates it. Otherwise, verify also if the fw_fdt node
++			 * property data has the same value as the node property
++			 * that has been checked.
++			 */
++			if (len < 0 && len != -FDT_ERR_NOTFOUND) {
++				printf ("libfdt fdt_get_property(): %s\n",
++					fdt_strerror(len));
++				return 1;
++			} else if (len == -FDT_ERR_NOTFOUND ||
++					strcmp(fw_pathp, pathp) != 0 ||
++					fw_len != len ||
++					memcmp(fw_nodep, nodep, len) != 0) {
++				ret = fdt_setprop(fdt, nodeoffset,
++						fw_pathp, fw_nodep, fw_len);
++				if (ret < 0)
++				{
++					printf("libfdt fdt_setprop(): %s\n",
++							fdt_strerror(ret));
++					return 1;
++				}
++			}
++			else if (len < 0) {
++				printf ("libfdt fdt_getprop(): %s\n",
++					fdt_strerror(len));
++				return 1;
++			}
++
++			break;
++		case FDT_NOP:
++			break;
++		case FDT_END:
++			return 1;
++		default:
++			printf("Unknown tag 0x%08X\n", fw_tag);
++			return 1;
++		}
++		fw_nodeoffset = fw_nextoffset;
++	}
++	return 0;
++}
++
++
++static int ft_board_setup_copy_fw_fdt_settings(struct fdt_header * fdt)
++{
++	int ret;		/* stores return codes */
++	int node_num;		/* actual node number when iterating */
++	int nodeoffset;		/* node offset from libfdt */
++	int fw_nodeoffset;	/* firmware node offset */
++	int fw_parentoffset;	/* firmware parent node offset */
++	char full_fw_path[50];	/* firmware node full path */
++	const char * fw_path;	/* firmware node name */
++	int len;		/* auxiliary array's length variable */
++	struct fdt_header * fw_fdt = (struct fdt_header *)fw_dtb_pointer;
++
++	/*
++	 * If the u-boot fdt size is lower than fw_fdt size than it should
++	 * be readjusted to support the new/modified entries.
++	 */
++	if(fdt_totalsize(fw_fdt) > fdt_totalsize(fdt))
++	{
++		ret = fdt_shrink_to_minimum(fdt, fdt_totalsize(fw_fdt) -
++				fdt_totalsize(fdt));
++		if (ret < 0)
++		{
++			printf("Could not resize fdt!\n");
++			return 1;
++		}
++	}
++
++	for (node_num = 0;
++		node_num < ARRAY_SIZE(rpi_firmware_changed_nodes);
++		node_num++)
++	{
++		nodeoffset = fdt_path_offset(fdt,
++				rpi_firmware_changed_nodes[node_num]);
++		fw_nodeoffset = fdt_path_offset(fw_fdt,
++				rpi_firmware_changed_nodes[node_num]);
++		if (fw_nodeoffset == -FDT_ERR_NOTFOUND) {
++			/*
++			 * If node was not find in fw fdt just jump to
++			 * the next one.
++			 */
++			continue;
++		} else if (fw_nodeoffset < 0) {
++			/* Something bad happened. */
++			printf("libfdt fdt_path_offset() returned %s\n",
++				fdt_strerror(nodeoffset));
++			return 1;
++		}
++
++		while (nodeoffset == -FDT_ERR_NOTFOUND) {
++			/* The fw fdt node was not find in u-boot fdt and it
++			 * must be created.
++			 * First find the fw node parent offset.
++			 */
++			fw_parentoffset = fdt_parent_offset(fw_fdt,
++							    fw_nodeoffset);
++			if (fw_parentoffset < 0)
++			{
++				printf("libfdt fdt_parent_offset returnd %s\n",
++					fdt_strerror(fw_parentoffset));
++				return 1;
++			}
++			/* Get firmware node parent offset full path */
++			 if(fdt_get_path(fw_fdt, fw_parentoffset,
++					full_fw_path,
++					sizeof(full_fw_path)) < 0) {
++				printf("libfdt fdt_get_name returned %s\n",
++					fdt_strerror(len));
++				return 1;
++			}
++			/*
++			 * Try to find nodeoffset in u-boot loaded fdt that
++			 * corresponds to parent node. If not found keep
++			 * iterating.
++			 */
++			nodeoffset = fdt_path_offset(fdt, full_fw_path);
++			if (nodeoffset < 0)
++				continue;
++			/*
++			 * The parent node was find in u-boot loaded fdt.
++			 * Now try to add to it the missing node.
++			 */
++			fw_path = fdt_get_name(fw_fdt, fw_nodeoffset,
++					&len);
++			if (len < 0)
++			{
++				printf("libfdt fdt_get_name returned %s\n",
++					fdt_strerror(len));
++				return 1;
++			}
++			nodeoffset = fdt_add_subnode(fdt, nodeoffset,
++							fw_path);
++			if (nodeoffset < 0)
++			{
++				printf("Could not create node %s!\n", fw_path);
++				printf("libfdt fdt_add_subnode returned %s\n",
++					fdt_strerror(nodeoffset));
++				return 1;
++			}
++			break;
++		}
++
++		ret = ft_board_setup_copy_node(fdt, fw_fdt, nodeoffset,
++					       fw_nodeoffset);
++		if (ret != 0)
++			return ret;
++	}
++	return 0;
++}
++
+ int ft_board_setup(void *blob, struct bd_info *bd)
+ {
+ 	int node;
+ 
++	/*
++	 * If the u-boot loaded fdt is different than the firmware fdt
++	 * then some settings must be copied from the fw fdt to the u-boot fdt.
++	 */
++	if (((unsigned long) blob) != fw_dtb_pointer)
++		ft_board_setup_copy_fw_fdt_settings((struct fdt_header *)blob);
++
+ 	node = fdt_node_offset_by_compatible(blob, -1, "simple-framebuffer");
+ 	if (node < 0)
+ 		fdt_simplefb_add_node(blob);
+-- 
+2.25.1
+
