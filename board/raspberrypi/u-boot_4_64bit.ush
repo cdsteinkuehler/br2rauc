@@ -72,10 +72,6 @@ done
 bootargs_fw=${bootargs_fw}
 env del bootargs_fw
 
-# If we're not using the dtb loaded by the firmware, load our dtb
-# and fixup the emmc2 dma-ranges setting so newer SOCs will boot
-# For details of what the FW modifies, see this RPi forum post:
-# https://forums.raspberrypi.com/viewtopic.php?t=329799#p1974233
 if test "x${rescue}" = "xtrue" -o "x${fdt_live}" = "xunset"; then
 	# Using device-tree from rootfs
 	# Check to see if we have any customizations in a uEnv.txt file
@@ -86,31 +82,12 @@ if test "x${rescue}" = "xtrue" -o "x${fdt_live}" = "xunset"; then
 		env import -t -r ${fileaddr} ${filesize}
 	fi
 
-	# Fixup emmc2 dma range, which varies based on SOC revision
-	# U-Boot's fdt get/set functions don't seem to work as expected
-	# on properties with multiple values, so just do a memcpy()
-
-	# Get a ptr/len for the FW modified dma-ranges
-	fdt addr ${fdt_addr}
-	fdt get addr tmp_src /emmc2bus dma-ranges
-	fdt get size tmp_len /emmc2bus dma-ranges
-
 	# Load our actual device-tree file
 	echo "Loading device-tree"
 	run load_fdt
 
-	# Copy FW fixed-up dma-ranges to loaded device-tree
-	fdt addr ${fdt_addr_r}
-	fdt get addr tmp_dst /emmc2bus dma-ranges
-	cp $tmp_src $tmp_dst $tmp_len
-
-	# FIXME: Update PCIe dma-ranges if using PCIe!
-
 	# Point to run-time device-tree
 	fdt_live=${fdt_addr_r}
-
-	# cleanup environment
-	env del tmp_src tmp_len tmp_dst;
 
 	# Setup kernel parameters
 	if test -n "${bootargs_force}" ; then
