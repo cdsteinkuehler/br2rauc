@@ -311,8 +311,10 @@ functionaltiy provided by these closed source applications.  To debug use dtc to
 generate sorted dts files from your flattened dtb and the firmware generated
 run-time device tree which you can then compare using standard file diff tools.
 
-You may still have to implement logic to deal with platform differences (eg:
-modify some device tree parameters based on SoC stepping revision).
+The U-Boot bootloader has been modified so the ft_board_setup() function will
+copy some firmware created and modified nodes from the firmware loaded
+device-tree to the U-Boot loaded device-tree.  You may need to modify the U-Boot
+patch if you need to add or change which device-tree nodes get copied.
 
 ## System Image
 
