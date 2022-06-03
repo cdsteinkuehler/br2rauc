@@ -25,10 +25,16 @@ if [ -e ${TARGET_DIR}/etc/fstab ]; then
 fi
 
 # Copy custom cmdline.txt file
-install -D -m 0644 $BR2_EXTERNAL_BR2RAUC_PATH/board/raspberrypi/cmdline.txt ${BINARIES_DIR}/custom/cmdline.txt
+install -D -m 0644 ${BR2_EXTERNAL_BR2RAUC_PATH}/board/raspberrypi/cmdline.txt ${BINARIES_DIR}/custom/cmdline.txt
 
 # Copy RAUC certificate
-install -D -m 0644 $BR2_EXTERNAL_BR2RAUC_PATH/board/raspberrypi/cert/cert.pem ${TARGET_DIR}/etc/rauc/keyring.pem
+if [ -e ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/ca.cert.pem ]; then
+	install -D -m 0644 ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/ca.cert.pem ${TARGET_DIR}/etc/rauc/keyring.pem
+else
+	echo "RAUC CA certificate not found!"
+	echo "...did you run the openssl-ca.sh script?"
+	exit 1
+fi
 
 # Update RAUC compatible string
 sed -i "/compatible/s/=.*\$/=${RAUC_COMPATIBLE}/" ${TARGET_DIR}/etc/rauc/system.conf

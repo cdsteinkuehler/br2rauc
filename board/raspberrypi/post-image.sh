@@ -28,7 +28,7 @@ genimage \
 	--outputpath "${BINARIES_DIR}" \
 	--config "${GENBOOTFS_CFG}"
 
-# Generate a RAUC update bundle for the system (bootfs + rootfs)
+# Generate a RAUC update bundle for the full system (bootfs + rootfs)
 [ -e ${BINARIES_DIR}/update.raucb ] && rm -rf ${BINARIES_DIR}/update.raucb
 [ -e ${BINARIES_DIR}/temp-update ] && rm -rf ${BINARIES_DIR}/temp-update
 mkdir -p ${BINARIES_DIR}/temp-update
@@ -49,8 +49,9 @@ ln -L ${BINARIES_DIR}/boot.vfat ${BINARIES_DIR}/temp-update/
 ln -L ${BINARIES_DIR}/rootfs.ext4 ${BINARIES_DIR}/temp-update/
 
 ${HOST_DIR}/bin/rauc bundle \
-	--cert ${BOARD_DIR}/cert/cert.pem \
-	--key ${BOARD_DIR}/cert/key.pem \
+	--cert ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/development-1.cert.pem \
+	--key ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/private/development-1.key.pem \
+	--keyring ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/ca.cert.pem \
 	${BINARIES_DIR}/temp-update/ \
 	${BINARIES_DIR}/update.raucb
 
@@ -72,15 +73,16 @@ EOF
 ln -L ${BINARIES_DIR}/rootfs.ext4 ${BINARIES_DIR}/temp-rootfs/
 
 ${HOST_DIR}/bin/rauc bundle \
-	--cert ${BOARD_DIR}/cert/cert.pem \
-	--key ${BOARD_DIR}/cert/key.pem \
+	--cert ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/development-1.cert.pem \
+	--key ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/private/development-1.key.pem \
+	--keyring ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/ca.cert.pem \
 	${BINARIES_DIR}/temp-rootfs/ \
 	${BINARIES_DIR}/rootfs.raucb
 
 # Parse update.raucb and generate initial rauc.status file
 # FIXME: There is probably a MUCH better way to do this,
 #        suggestions welcome!
-eval $(rauc --keyring ${BOARD_DIR}/cert/cert.pem --output-format=shell info ${BINARIES_DIR}/update.raucb)
+eval $(rauc --keyring ${BR2_EXTERNAL_BR2RAUC_PATH}/openssl-ca/dev/ca.cert.pem --output-format=shell info ${BINARIES_DIR}/update.raucb)
 
 cat > ${BINARIES_DIR}/rauc.status << EOF
 [slot.${RAUC_IMAGE_CLASS_0}.0]

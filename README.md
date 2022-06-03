@@ -42,6 +42,9 @@ cd ~/MyWorkDir
 git clone --depth 1 --branch 2022.02.x --no-single-branch https://git.busybox.net/buildroot/
 git clone https://github.com/cdsteinkuehler/br2rauc
 
+# Create the certficate and keyring files needed for signing RAUC bundles
+( cd br2rauc/ ; ./openssl-ca.sh )
+
 # Setup buildroot, keeping build artifacts outside the buildroot tree
 # Note paths are relative to the buildroot directory
 make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypicm4io-64-rauc_defconfig
@@ -370,9 +373,10 @@ jumper across pins 7 and 9 to boot into recovery mode.
 ### Important
 
 RAUC *requires* updates to be cryptographically signed.  This example includes a
-self-signed certificate expiring in 2033 for convenience.  You *must* create a
-proper signed certificate prior to using this example for anything other than
-testing.
+script (openssl-ca.sh, taken from the meta-rauc project) to generate a
+certificate and key that can be used for testing.  You *must* run this script
+(or otherwise supply proper keyring, key, and certificate files) before
+attempting to build the br2rauc Buildroot project.
 
 ### RAUC configuration
 
@@ -399,7 +403,6 @@ the post-image.sh script for details.
   * Mark status good once booted and running
   * Interact with systemd watchdog
   * Use jumpers to trigger failed behavior for testing
-* Create bmap file & xz compress generated image
 * Use genimage to generate RAUC bundle?
 * Populate rauc.status with initial image status
 
@@ -450,3 +453,4 @@ applied.
 * [Raspberry Pi config.txt](https://www.raspberrypi.com/documentation/computers/config_txt.html)
 * [Raspberry Pi CM4 Boot Details](https://www.raspberrypi.com/documentation/computers/compute-module.html#cm4bootloader)
 * [Raspberry Pi 4 Boot Details](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-4-boot-eeprom)
+* [meta-rauc yocto layer](https://github.com/rauc/meta-rauc)
