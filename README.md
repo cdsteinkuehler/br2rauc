@@ -43,6 +43,8 @@ git clone --depth 1 --branch 2022.02.x --no-single-branch https://git.busybox.ne
 git clone https://github.com/cdsteinkuehler/br2rauc
 
 # Create the certficate and keyring files needed for signing RAUC bundles
+# Optional: Pass CA and ORG as arguments: openssl-ca.sh [ ORG [ CA ]]
+# Optional: Create a symlink to your CA directory located elsewhere
 ( cd br2rauc/ ; ./openssl-ca.sh )
 
 # Setup buildroot, keeping build artifacts outside the buildroot tree
