@@ -372,18 +372,25 @@ for the U-Boot environment) and appears in the partition table.  The second copy
 is offet 260M from the first and is not listed in the partition table (this is
 the "hidden" space used by RAUC with the boot-mbr-switch slot type).
 
-Two copies of the root filesystem are then written to the disk, both with enries
-in the partition table.  These are the "A" and "B" slots used by RAUC as the
-symmetric rootfs Slots.
+The second partition (p2) is the squashfs rescue rootfs.
 
-Finally, a small 32M ext4 partition is created to store persistent data across
-updates.  This partition is mounted with the flag "data=journal" to insure
-maximum safety.  This partition is useful for storing occasionally modified data
-that must be retained across updates (eg: rauc.status file, static IP address,
-etc.).  If you need to consistently write large amounts of data, you will
-likely want to change how persistent data is handled.  See
+The third partition (p3) is the 128M persisitent data partition (p3). This
+partition is mounted with the flag "data=journal" to insure maximum safety.
+This partition is useful for storing occasionally modified data that must be
+retained across updates (eg: rauc.status file, static IP address, etc.).  If you
+need to consistently write large amounts of data, you will likely want to change
+how persistent data is handled.  See:
 "[Data Storage and Migration](https://rauc.readthedocs.io/en/latest/advanced.html#data-storage-and-migration)"
 in the RAUC manual.
+
+Partition 4 holds an extended partition table.
+
+Two copies of the root filesystem are then written to the disk, both with enries
+in the partition table (p5 and p6).  These are the "A" and "B" slots used by
+RAUC as the symmetric rootfs Slots.
+
+Finally, the upload partition is created (p7) to use as temporary storage when
+performing RAUC updates.
 
 ## Rescue Image
 
@@ -398,7 +405,7 @@ Started` above for details on maintining multiple configurations built from the
 same Buildroot and External trees.  You will likely also want to enable ccache.
 
 To boot into recovery mode using the rescue partition, tie GPIO pin 4 low while
-booting.  This is pin 7 on the 40-pin header, conveniently setup with a week
+booting.  This is pin 7 on the 40-pin header, conveniently setup with a weak
 pull-up resistor at reset and located next to GND pin 9.  Place a shorting
 jumper across pins 7 and 9 to boot into recovery mode.
 
