@@ -44,9 +44,17 @@ cd ~/MyWorkDir
 git clone --depth 1 --branch 2022.02.x --no-single-branch https://git.busybox.net/buildroot/
 git clone https://github.com/cdsteinkuehler/br2rauc
 
+# Create the certficate and keyring files needed for signing RAUC bundles
+# Optional: Pass CA and ORG as arguments: openssl-ca.sh [ ORG [ CA ]]
+# Optional: Create a symlink to your CA directory located elsewhere
+( cd br2rauc/ ; ./openssl-ca.sh )
+
 # Setup buildroot, keeping build artifacts outside the buildroot tree
 # Note paths are relative to the buildroot directory
-make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypicm4io_64_rauc_defconfig
+make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypicm4io-64-rauc_defconfig
+
+# ...or for the Raspberry Pi 4B:
+make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../output raspberrypi4-64-rauc_defconfig
 
 # You can now run standard buildroot make commands with no options
 # directly from the output directory
@@ -86,7 +94,7 @@ sudo bmaptool copy images/sdcard.img.xz /dev/sdX
 #
 # To create another Buildroot working directory to use for the rescue partition:
 cd ~/MyWorkDir
-make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../rescue raspberrypicm4io_64_rauc_defconfig
+make -C buildroot/ BR2_EXTERNAL=../br2rauc O=../rescue raspberrypicm4io-64-rauc_defconfig
 
 # You can now run standard buildroot make commands with no options
 # directly from the output directory
@@ -340,8 +348,10 @@ functionaltiy provided by these closed source applications.  To debug use dtc to
 generate sorted dts files from your flattened dtb and the firmware generated
 run-time device tree which you can then compare using standard file diff tools.
 
-You may still have to implement logic to deal with platform differences (eg:
-modify some device tree parameters based on SoC stepping revision).
+The U-Boot bootloader has been modified so the ft_board_setup() function will
+copy some firmware created and modified nodes from the firmware loaded
+device-tree to the U-Boot loaded device-tree.  You may need to modify the U-Boot
+patch if you need to add or change which device-tree nodes get copied.
 
 ## System Image
 
@@ -397,9 +407,10 @@ jumper across pins 7 and 9 to boot into recovery mode.
 ### Important
 
 RAUC *requires* updates to be cryptographically signed.  This example includes a
-self-signed certificate expiring in 2033 for convenience.  You *must* create a
-proper signed certificate prior to using this example for anything other than
-testing.
+script (openssl-ca.sh, taken from the meta-rauc project) to generate a
+certificate and key that can be used for testing.  You *must* run this script
+(or otherwise supply proper keyring, key, and certificate files) before
+attempting to build the br2rauc Buildroot project.
 
 ### RAUC configuration
 
@@ -475,3 +486,4 @@ applied.
 * [Raspberry Pi config.txt](https://www.raspberrypi.com/documentation/computers/config_txt.html)
 * [Raspberry Pi CM4 Boot Details](https://www.raspberrypi.com/documentation/computers/compute-module.html#cm4bootloader)
 * [Raspberry Pi 4 Boot Details](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-4-boot-eeprom)
+* [meta-rauc yocto layer](https://github.com/rauc/meta-rauc)
