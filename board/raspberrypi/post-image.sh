@@ -9,6 +9,10 @@ GENIMAGE_TMP="${BUILD_DIR}/genimage.tmp"
 GENBOOTFS_CFG="${BOARD_DIR}/genbootfs-${BOARD_NAME}.cfg"
 RAUC_COMPATIBLE="${2:-br2rauc-rpi4-64}"
 
+# Pass VERSION as an environment variable (eg: export from a top-level Makefile)
+# If VERSION is unset, fallback to the Buildroot version
+RAUC_VERSION=${VERSION:-${BR2_VERSION_FULL}}
+
 # Pass an empty rootpath. genimage makes a full copy of the given rootpath to
 # ${GENIMAGE_TMP}/root so passing TARGET_DIR would be a waste of time and disk
 # space. We don't rely on genimage to build the rootfs image, just to insert a
@@ -36,7 +40,7 @@ mkdir -p ${BINARIES_DIR}/temp-update
 cat >> ${BINARIES_DIR}/temp-update/manifest.raucm << EOF
 [update]
 compatible=${RAUC_COMPATIBLE}
-version=${VERSION}
+version=${RAUC_VERSION}
 [bundle]
 format=verity
 [image.bootloader]
@@ -63,7 +67,7 @@ mkdir -p ${BINARIES_DIR}/temp-rootfs
 cat >> ${BINARIES_DIR}/temp-rootfs/manifest.raucm << EOF
 [update]
 compatible=${RAUC_COMPATIBLE}
-version=${VERSION}
+version=${RAUC_VERSION}
 [bundle]
 format=verity
 [image.rootfs]
