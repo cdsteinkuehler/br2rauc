@@ -128,5 +128,5 @@ bmaptool create "${BINARIES_DIR}/sdcard.img" -o "${BINARIES_DIR}/sdcard.img.bmap
 
 # Compress the sdcard image
 [ -e "${BINARIES_DIR}/sdcard.img.xz" ] && rm "${BINARIES_DIR}/sdcard.img.xz"
-xz -T 0 "${BINARIES_DIR}/sdcard.img"
+xz -v -T 0 "${BINARIES_DIR}/sdcard.img"
 
