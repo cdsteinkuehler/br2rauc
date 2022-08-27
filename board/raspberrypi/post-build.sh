@@ -5,6 +5,10 @@ set -e
 
 RAUC_COMPATIBLE="${2:-br2rauc-rpi4-64}"
 
+# Pass VERSION as an environment variable (eg: export from a top-level Makefile)
+# If VERSION is unset, fallback to the Buildroot version
+RAUC_VERSION=${VERSION:-${BR2_VERSION_FULL}}
+
 # Add a console on tty1
 if [ -e ${TARGET_DIR}/etc/inittab ]; then
     grep -qE '^tty1::' ${TARGET_DIR}/etc/inittab || \
@@ -39,7 +43,10 @@ fi
 # Update RAUC compatible string
 sed -i "/compatible/s/=.*\$/=${RAUC_COMPATIBLE}/" ${TARGET_DIR}/etc/rauc/system.conf
 
-# 
+# Create rauc version file
+echo "${RAUC_VERSION}" > ${TARGET_DIR}/etc/rauc/version
+
+# Customize login prompt with login hints
 cat <<- EOF >> ${TARGET_DIR}/etc/issue
 
 	Default username:password is [user:<empty>]
