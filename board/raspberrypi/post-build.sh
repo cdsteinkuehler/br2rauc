@@ -51,6 +51,8 @@ cat <<- EOF >> ${TARGET_DIR}/etc/issue
 
 	Default username:password is [user:<empty>]
 	Root login disabled, use sudo su -
+	With great power comes great responsibility!
+
 	eth0: \4{eth0}
 
 EOF
