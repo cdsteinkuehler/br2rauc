@@ -1,0 +1,60 @@
+From 18db359b778551df6905b373de29b2fe9c5ae346 Mon Sep 17 00:00:00 2001
+From: Charles Steinkuehler <cstein@newtek.com>
+Date: Wed, 4 Oct 2023 19:54:21 -0500
+Subject: [PATCH 3/3] Update copied device-tree nodes
+
+Update the device-tree nodes copied from the firmware modified
+device-tree to the tree loaded from the root filesystem.
+
+Signed-off-by: Charles Steinkuehler <cstein@newtek.com>
+---
+ board/raspberrypi/rpi/rpi.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/board/raspberrypi/rpi/rpi.c b/board/raspberrypi/rpi/rpi.c
+index 4d93117494..e217380529 100644
+--- a/board/raspberrypi/rpi/rpi.c
++++ b/board/raspberrypi/rpi/rpi.c
+@@ -285,6 +285,14 @@ static const struct rpi_model rpi_models_old_scheme[] = {
+ static const struct rpi_fdt_entries rpi_fw_fdt_entries[] =
+ {
+ 	{
++		.nodename = "/system",
++		.num_prop = 2,
++		.props = {
++			"linux,serial",
++			"linux,revision",
++		}
++	},
++	{
+ 		.nodename = "/chosen",
+ 		.num_prop = 3,
+ 		.props = {
+@@ -313,21 +321,21 @@ static const struct rpi_fdt_entries rpi_fw_fdt_entries[] =
+ 		},
+ 	},
+ 	{
+-		.nodename = "/scb/pcie",
++		.nodename = "/scb/pcie@7d500000",
+ 		.num_prop = 1,
+ 		.props = {
+ 			"dma-ranges",
+ 		},
+ 	},
+ 	{
+-		.nodename = "/scb/ethernet",
++		.nodename = "/scb/ethernet@7d580000",
+ 		.num_prop = 1,
+ 		.props = {
+ 			"local-mac-address",
+ 		}
+ 	},
+ 	{
+-		.nodename = "/memory",
++		.nodename = "/memory@0",
+ 		.num_prop = 1,
+ 		.props = {
+ 			"reg",
+-- 
+2.11.0
+
