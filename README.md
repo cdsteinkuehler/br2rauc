@@ -257,10 +257,10 @@ built along with the kernel.  For more details, see the Device Tree section,
 below.
 
 If you are booting with the firmware loaded device-tree (cmdline.txt contains
-fw_dtb), the RAUC Kernel arguments are appended to the kernel command line
+"fw_dtb"), the RAUC Kernel arguments are appended to the kernel command line
 provided by the firmware and the bootargs_default, bootargs_force, and
 bootargs_extra variables are ignored.  Edit cmdline.txt on the vfat boot
-partition to make any changes.  NOTE: Setting fw_dtb in cmdline.txt is intended
+partition to make any changes.  NOTE: Setting "fw_dtb" in cmdline.txt is intended
 for experimetal purposes only  and is not recommended for production settings.
 
 U-Boot does not currently support the watchdog timer for the Raspberry Pi family
@@ -300,7 +300,7 @@ of some possible options includes:
   an actual product, but can be useful for development, especially as you
   transition from a full Raspberry Pi OS development environment to the more
   streamlined Buildroot environment.  To use the device tree loaded by the RPi
-  firmware, pass the fw_dtb argument on the kernel command line.  This is
+  firmware, pass the "fw_dtb" argument on the kernel command line.  This is
   currently the default for the generated sdcard.img system.
 
 * Migrate device tree overlay processing to U-Boot: This is non-trivial, but
@@ -324,7 +324,7 @@ of some possible options includes:
   Overview, and diff your flattened tree with a known working run-time device
   tree loaded by the RPi firmware (see the dtc command above to get a dts file
   from your running system).  To enable loading the device tree from your rootfs
-  partition, edit cmdline.txt on the vfat partition and delete the fw_dft
+  partition, edit cmdline.txt on the vfat partition and delete the "fw_dtb"
   argument.
 
 * Load device tree overlays at run-time: You can use the kernel's configfs
@@ -337,7 +337,7 @@ of some possible options includes:
 The default configuration ignores the devcie tree files on your rootfs partition
 and instead uses the device tree passed in by the RPi firmware.  To use the
 flattened device tree file from your rootfs, edit cmdline.txt on the vfat
-partition and delete the fw_dft argument.  This was done as it is expected more
+partition and delete the "fw_dtb" argument.  This was done as it is expected more
 people would be confused by changes to config.txt having no effect vs. edits to
 custom.dtsi being ignored.  I trust if you can edit dtsi files you can read
 instructions and/or trace the boot process and figure out what's going on. :-)
