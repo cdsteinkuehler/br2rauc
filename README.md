@@ -348,10 +348,15 @@ functionaltiy provided by these closed source applications.  To debug use dtc to
 generate sorted dts files from your flattened dtb and the firmware generated
 run-time device tree which you can then compare using standard file diff tools.
 
-The U-Boot bootloader has been modified so the ft_board_setup() function will
-copy some firmware created and modified nodes from the firmware loaded
-device-tree to the U-Boot loaded device-tree.  You may need to modify the U-Boot
-patch if you need to add or change which device-tree nodes get copied.
+Prior to migrating to Buildroot 2024.02 the U-Boot bootloader was modified to
+have the  ft_board_setup() function copy some firmware created and modified
+nodes from the firmware loaded device-tree to the U-Boot loaded device-tree.
+Recent versions of U-Boot now include  support for this functionality which is
+typically required to boot successfully.  Note that you may still need to use
+the U-Boot patch or otherwise modify the U-Boot code if you need to add or
+change which device-tree nodes get copied.  In particular, some hardware
+libraries are sensitive to exactly which devic-tree nodes are present (eg:
+rpi_ws281x_drv).
 
 ## System Image
 
