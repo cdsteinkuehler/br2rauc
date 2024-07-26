@@ -1,0 +1,2 @@
+#include "../../../arm/boot/dts/bcm2712-rpi-5-b.dts"
+#include "custom-5-b.dtsi"
