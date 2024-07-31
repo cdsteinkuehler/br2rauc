@@ -1,0 +1,114 @@
+test -n "${BOOT_ORDER}" || setenv BOOT_ORDER "A B"
+test -n "${BOOT_A_LEFT}" || setenv BOOT_A_LEFT 3
+test -n "${BOOT_B_LEFT}" || setenv BOOT_B_LEFT 3
+test -n "${bootargs_default}" || setenv bootargs_default coherent_pool=1M vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000 rootwait console=tty1 console=ttyAMA10,115200
+test -n "${DTB_FILE}" || setenv DTB_FILE bcm2712-rpi-5-b.dtb
+
+# RPi firmware uses a dynamic fdt_addr, but U-Boot does not use the fw
+# provided address if fdt_addr is already defined in the environment!
+# Copy fdt_addr to a local variable and delete the environment variable
+# so it never gets accidentally saved:
+fdt_addr=${fdt_addr}
+env delete fdt_addr
+
+# To boot from the rescue partition, tie GPIO4 (pin 7) to GND (pin 9)
+# The gpio input command will return an exit status of 0 (true)
+# If the pin is high (pulled up by default) the exit status is 1 (false)
+if gpio input gpio4 ; then
+	# GPIO4 is shorted to ground so boot in rescue mode
+	echo "Booting from rescue partition"
+	setenv load_uenv "load mmc 0:2 ${kernel_addr_r} /boot/uEnv.txt"
+	setenv load_fdt "load mmc 0:2 ${fdt_addr_r} /boot/${DTB_FILE}"
+	setenv load_kernel "load mmc 0:2 ${kernel_addr_r} /boot/Image"
+	raucargs="root=/dev/mmcblk0p2"
+	rescue=true
+else
+	raucargs=unset
+	for BOOT_SLOT in "${BOOT_ORDER}"; do
+		if test "x${raucargs}" != "xunset"; then
+			# skip remaining slots
+		elif test "x${BOOT_SLOT}" = "xA"; then
+			if test ${BOOT_A_LEFT} -gt 0; then
+				echo "Found valid slot A, ${BOOT_A_LEFT} attempts remaining"
+				setexpr BOOT_A_LEFT ${BOOT_A_LEFT} - 1
+				setenv load_uenv "load mmc 0:5 ${kernel_addr_r} /boot/uEnv.txt"
+				setenv load_fdt "load mmc 0:5 ${fdt_addr_r} /boot/${DTB_FILE}"
+				setenv load_kernel "load mmc 0:5 ${kernel_addr_r} /boot/Image"
+				raucargs="root=/dev/mmcblk0p5 rauc.slot=A"
+			fi
+		elif test "x${BOOT_SLOT}" = "xB"; then
+			if test ${BOOT_B_LEFT} -gt 0; then
+				echo "Found valid slot B, ${BOOT_B_LEFT} attempts remaining"
+				setexpr BOOT_B_LEFT ${BOOT_B_LEFT} - 1
+				setenv load_uenv "load mmc 0:6 ${kernel_addr_r} /boot/uEnv.txt"
+				setenv load_fdt "load mmc 0:6 ${fdt_addr_r} /boot/${DTB_FILE}"
+				setenv load_kernel "load mmc 0:6 ${kernel_addr_r} /boot/Image"
+				raucargs="root=/dev/mmcblk0p6 rauc.slot=B"
+			fi
+		fi
+	done
+fi
+
+if test "x${raucargs}" = "xunset"; then
+	echo "No valid slot found, resetting tries to 3"
+	setenv BOOT_A_LEFT 3
+	setenv BOOT_B_LEFT 3
+	saveenv
+	reset
+fi
+
+# Examine the fdt loaded by the firmware
+# Pass fw_dtb to use the dtb loaded by the firmware
+fdt_live=unset
+fdt addr ${fdt_addr}
+fdt get value bootargs_fw /chosen bootargs
+for arg in ${bootargs_fw} ; do
+	if test "x${arg}" = "xfw_dtb" ; then
+		fdt_live=${fdt_addr}
+	fi
+done
+
+# Save bootargs_fw in a local variable for later use
+bootargs_fw=${bootargs_fw}
+env del bootargs_fw
+
+if test "x${rescue}" = "xtrue" -o "x${fdt_live}" = "xunset"; then
+	# Using device-tree from rootfs
+	# Check to see if we have any customizations in a uEnv.txt file
+	env del bootargs_force bootargs_extra
+	echo "Checking for /boot/uEnv.txt"
+	if run load_uenv ; then
+		echo "Importing uEnv.txt"
+		env import -t -r ${fileaddr} ${filesize}
+	fi
+
+	# Load our actual device-tree file
+	echo "Loading device-tree"
+	run load_fdt
+
+	# Point to run-time device-tree
+	fdt_live=${fdt_addr_r}
+
+	# Setup kernel parameters
+	if test -n "${bootargs_force}" ; then
+		setenv bootargs "${bootargs_force} ${raucargs}"
+	else
+		setenv bootargs "${bootargs_default} ${bootargs_extra} ${raucargs}"
+	fi
+else
+	# Using FW provided device-tree
+	# Append rauc boot arguments to FW generated command line
+	# This setting will override /chosen/bootargs in the device-tree
+	echo "Using firmware device-tree"
+	setenv bootargs "${bootargs_fw} ${raucargs}"
+fi
+
+# Store updated boot state...
+# ...above code should have modified BOOT_(AB)_LEFT and bootargs
+saveenv
+
+echo "Loading kernel"
+run load_kernel
+
+echo "Starting kernel"
+booti ${kernel_addr_r} - ${fdt_live}
