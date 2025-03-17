@@ -2,6 +2,17 @@
 # http://rptl.io/configtxt
 # Some settings may impact device functionality. See link above for details
 
+# br2rauc: Test GPIO 4 to see if we should boot the rescue squshfs partition
+# U-Boot cannot read GPIO pins, so add rescue to the kernel command line
+
+# Set GPIO 4 to gpio input with pull-up enabled
+gpio=4=pu
+
+# Boot into rescue mode if GPIO 4 is pulled low
+[gpio4=0]
+cmdline=rescue.txt
+[all]
+
 # Uncomment some or all of these to enable the optional hardware interfaces
 #dtparam=i2c_arm=on
 #dtparam=i2s=on

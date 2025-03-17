@@ -11,17 +11,32 @@ test -n "${DTB_FILE}" || setenv DTB_FILE bcm2712-rpi-5-b.dtb
 fdt_addr=${fdt_addr}
 env delete fdt_addr
 
-# To boot from the rescue partition, tie GPIO4 (pin 7) to GND (pin 9)
-# The gpio input command will return an exit status of 0 (true)
-# If the pin is high (pulled up by default) the exit status is 1 (false)
-if gpio input gpio4 ; then
+# Examine the fdt loaded by the firmware
+# Pass fw_dtb to use the dtb loaded by the firmware
+# Pass rescue to boot from the rescue partition
+fdt_live=unset
+fdt addr ${fdt_addr}
+rescue=false
+fdt get value bootargs_fw /chosen bootargs
+for arg in ${bootargs_fw} ; do
+	if test "x${arg}" = "xfw_dtb" ; then
+		fdt_live=${fdt_addr}
+	fi
+	if test "x${arg}" = "xrescue" ; then
+		rescue=true
+	fi
+done
+
+# U-Boot cannot currently read from GPIO pins connected to the RP1 on a
+# RPi 5 so we test the GPIO in the RPi boot firmware via config.txt and
+# pass rescue on the kernel command line to boot in rescue mode
+if test "x${rescue}" = "xtrue" ; then
 	# GPIO4 is shorted to ground so boot in rescue mode
 	echo "Booting from rescue partition"
 	setenv load_uenv "load mmc 0:2 ${kernel_addr_r} /boot/uEnv.txt"
 	setenv load_fdt "load mmc 0:2 ${fdt_addr_r} /boot/${DTB_FILE}"
 	setenv load_kernel "load mmc 0:2 ${kernel_addr_r} /boot/Image"
 	raucargs="root=/dev/mmcblk0p2"
-	rescue=true
 else
 	raucargs=unset
 	for BOOT_SLOT in "${BOOT_ORDER}"; do
@@ -56,17 +71,6 @@ if test "x${raucargs}" = "xunset"; then
 	saveenv
 	reset
 fi
-
-# Examine the fdt loaded by the firmware
-# Pass fw_dtb to use the dtb loaded by the firmware
-fdt_live=unset
-fdt addr ${fdt_addr}
-fdt get value bootargs_fw /chosen bootargs
-for arg in ${bootargs_fw} ; do
-	if test "x${arg}" = "xfw_dtb" ; then
-		fdt_live=${fdt_addr}
-	fi
-done
 
 # Save bootargs_fw in a local variable for later use
 bootargs_fw=${bootargs_fw}

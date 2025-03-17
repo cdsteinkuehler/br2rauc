@@ -38,6 +38,7 @@ fi
 # Copy custom cmdline.txt file
 if [ ${BOARD_NAME} = "raspberrypi5" ]; then
     install -D -m 0644 ${BR2_EXTERNAL_BR2RAUC_PATH}/board/raspberrypi/cmdline_5.txt ${BINARIES_DIR}/custom/cmdline.txt
+    install -D -m 0644 ${BR2_EXTERNAL_BR2RAUC_PATH}/board/raspberrypi/rescue_5.txt ${BINARIES_DIR}/custom/rescue.txt
 else
     install -D -m 0644 ${BR2_EXTERNAL_BR2RAUC_PATH}/board/raspberrypi/cmdline.txt ${BINARIES_DIR}/custom/cmdline.txt
 fi
